@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Prospecta V1</title>
+  <title>Prospecta V2</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -20,6 +20,7 @@
       <nav id="nav">
         <button class="nav-item active" data-view="dashboard">🏠 Dashboard</button>
         <button class="nav-item" data-view="prospect">🔎 Prospectar</button>
+        <button class="nav-item" data-view="assistant">🤖 Assistente IA</button>
         <button class="nav-item" data-view="leads">🏢 Leads</button>
         <button class="nav-item" data-view="services">💼 Serviços</button>
         <button class="nav-item" data-view="messages">💬 Abordagens</button>
@@ -72,7 +73,7 @@
           <div class="card-head">
             <div>
               <h2>Buscar empresas</h2>
-              <p class="muted">Use Google Places API ou abra a busca no Google Maps e cadastre manualmente.</p>
+              <p class="muted">Você pode cadastrar manualmente ou usar o Assistente IA para pesquisar sem chave de API.</p>
             </div>
           </div>
           <div class="form-grid">
@@ -90,7 +91,8 @@
             </label>
           </div>
           <div class="row">
-            <button class="btn primary" id="searchPlacesBtn">🔎 Buscar via Google Places</button>
+            <button class="btn primary" data-view="assistant">🤖 Pesquisar com IA</button>
+            <button class="btn secondary" id="searchPlacesBtn">Google Places (opcional)</button>
             <button class="btn secondary" id="openMapsBtn">📍 Abrir no Google Maps</button>
           </div>
           <div id="searchStatus" class="notice hidden"></div>
@@ -104,6 +106,91 @@
           <div id="searchResults" class="lead-grid">
             <div class="empty">Faça uma busca para visualizar possíveis clientes.</div>
           </div>
+        </div>
+      </section>
+
+
+      <section class="view" id="assistantView">
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Gerar solicitação para o ChatGPT</h2>
+                <p class="muted">Monte a pesquisa aqui, copie a solicitação e envie no ChatGPT.</p>
+              </div>
+            </div>
+
+            <div class="form-grid ai-form">
+              <label>Nicho
+                <input id="aiNiche" placeholder="Ex.: Pet Shop" />
+              </label>
+              <label>Cidade
+                <input id="aiCity" placeholder="Ex.: Anápolis - GO" />
+              </label>
+              <label>Quantidade
+                <select id="aiQuantity">
+                  <option>10</option><option selected>20</option><option>30</option><option>50</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="check-grid">
+              <label class="check"><input type="checkbox" id="aiPhone" checked /> Telefone / WhatsApp</label>
+              <label class="check"><input type="checkbox" id="aiWebsite" checked /> Site</label>
+              <label class="check"><input type="checkbox" id="aiInstagram" checked /> Instagram</label>
+              <label class="check"><input type="checkbox" id="aiMaps" checked /> Google Maps</label>
+              <label class="check"><input type="checkbox" id="aiRating" checked /> Avaliação</label>
+              <label class="check"><input type="checkbox" id="aiOpportunity" checked /> Analisar oportunidades</label>
+            </div>
+
+            <label>Critério adicional
+              <input id="aiExtra" placeholder="Ex.: priorize empresas sem site ou com presença digital fraca" />
+            </label>
+
+            <button class="btn primary" id="generatePromptBtn">✨ Gerar solicitação</button>
+
+            <label class="top-space">Solicitação pronta
+              <textarea id="aiPrompt" rows="13" placeholder="A solicitação aparecerá aqui..."></textarea>
+            </label>
+            <div class="row">
+              <button class="btn secondary" id="copyPromptBtn">📋 Copiar solicitação</button>
+              <button class="btn secondary" id="openChatGPTBtn">↗ Abrir ChatGPT</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <h2>Importar resposta</h2>
+                <p class="muted">Cole aqui o bloco JSON devolvido pelo ChatGPT. O Prospecta valida antes de salvar.</p>
+              </div>
+            </div>
+
+            <div class="import-help">
+              <strong>Fluxo rápido</strong>
+              <div class="flow-step"><span>1</span> Gere e copie a solicitação.</div>
+              <div class="flow-step"><span>2</span> Envie no ChatGPT e aguarde a pesquisa.</div>
+              <div class="flow-step"><span>3</span> Copie somente o JSON retornado.</div>
+              <div class="flow-step"><span>4</span> Cole abaixo e clique em analisar.</div>
+            </div>
+
+            <label>Resposta JSON
+              <textarea id="aiImportText" rows="15" placeholder='{"leads":[{"name":"Empresa Exemplo", ...}]}'></textarea>
+            </label>
+            <div class="row">
+              <button class="btn primary" id="analyzeImportBtn">🔍 Analisar resposta</button>
+              <button class="btn secondary hidden" id="importLeadsBtn">⬇️ Importar leads</button>
+            </div>
+            <div id="importStatus" class="notice hidden"></div>
+          </div>
+        </div>
+
+        <div class="card hidden" id="importPreviewCard">
+          <div class="card-head">
+            <h2>Prévia da importação</h2>
+            <span id="importPreviewCount" class="muted"></span>
+          </div>
+          <div id="importPreview"></div>
         </div>
       </section>
 

@@ -71,6 +71,7 @@ async function seed(){
 const views={
  dashboard:["Dashboard","Visão geral da sua prospecção comercial."],
  prospect:["Prospectar","Encontre e qualifique empresas com potencial."],
+ assistant:["Assistente IA","Crie pesquisas para o ChatGPT e importe os resultados sem API paga."],
  leads:["Leads","Acompanhe histórico, status e oportunidades."],
  services:["Serviços","Organize o que você vende."],
  messages:["Abordagens","Edite seus modelos de mensagem."],
@@ -236,6 +237,118 @@ async function exportCSV(){
  download("prospecta-leads.csv","\ufeff"+csv,"text/csv;charset=utf-8");
 }
 
+
+let pendingImportedLeads=[];
+
+function buildAIPrompt(){
+ const niche=document.getElementById("aiNiche").value.trim();
+ const city=document.getElementById("aiCity").value.trim();
+ const qty=document.getElementById("aiQuantity").value;
+ if(!niche||!city){alert("Informe o nicho e a cidade.");return}
+
+ const wanted=[];
+ if(document.getElementById("aiPhone").checked)wanted.push("telefone/WhatsApp comercial público");
+ if(document.getElementById("aiWebsite").checked)wanted.push("site oficial");
+ if(document.getElementById("aiInstagram").checked)wanted.push("Instagram oficial, se encontrado");
+ if(document.getElementById("aiMaps").checked)wanted.push("link do Google Maps");
+ if(document.getElementById("aiRating").checked)wanted.push("avaliação no Google");
+ if(document.getElementById("aiOpportunity").checked)wanted.push("análise da oportunidade comercial e serviço recomendado");
+
+ const extra=document.getElementById("aiExtra").value.trim();
+ const schema=`{
+  "leads": [
+    {
+      "name": "Nome da empresa",
+      "niche": "${niche}",
+      "city": "${city}",
+      "phone": "",
+      "website": "",
+      "instagram": "",
+      "mapsUrl": "",
+      "rating": "",
+      "recommendedService": "",
+      "opportunity": "high|medium|low",
+      "notes": "Resumo curto da oportunidade"
+    }
+  ]
+}`;
+
+ const prompt=`Pesquise na internet ${qty} empresas reais do nicho "${niche}" em "${city}" que possam ser potenciais clientes para serviços de presença digital.
+
+Meu trabalho inclui criação de sites, tráfego pago (Google Ads e Meta Ads), otimização da presença no Google/tráfego orgânico, social media, design gráfico, criação de cardápios e PDFs e edição de vídeos.
+
+Quero estes dados quando estiverem publicamente disponíveis: ${wanted.join(", ")}.
+${extra?`Critério adicional: ${extra}.`:""}
+
+Priorize empresas que demonstrem oportunidade comercial, por exemplo: sem site, site fraco/desatualizado, presença digital incompleta, Google pouco otimizado ou redes sociais que poderiam receber conteúdo profissional.
+
+Não invente dados. Quando um dado não puder ser confirmado, deixe o campo vazio. Evite duplicatas.
+
+IMPORTANTE PARA IMPORTAÇÃO: ao final da resposta, entregue um único bloco JSON válido, sem comentários dentro do JSON e sem markdown dentro dele, seguindo EXATAMENTE esta estrutura:
+${schema}
+
+No campo opportunity use somente "high", "medium" ou "low". No campo recommendedService indique o serviço ou combinação de serviços que faria mais sentido oferecer.`;
+ document.getElementById("aiPrompt").value=prompt;
+}
+
+function extractJSON(text){
+ let cleaned=text.trim();
+ cleaned=cleaned.replace(/^```(?:json)?\s*/i,"").replace(/\s*```$/,"");
+ try{return JSON.parse(cleaned)}catch(e){}
+ const start=cleaned.indexOf("{"), end=cleaned.lastIndexOf("}");
+ if(start>=0&&end>start)return JSON.parse(cleaned.slice(start,end+1));
+ throw new Error("Não encontrei um JSON válido na resposta.");
+}
+
+async function analyzeAIImport(){
+ const box=document.getElementById("importStatus");
+ try{
+  const data=extractJSON(document.getElementById("aiImportText").value);
+  if(!Array.isArray(data.leads))throw new Error('O JSON precisa conter a propriedade "leads" como lista.');
+  const existing=await getAll("leads");
+  pendingImportedLeads=data.leads.filter(x=>x&&x.name).map(raw=>{
+    const l={
+      id:uid("lead"), name:String(raw.name||"").trim(),
+      niche:String(raw.niche||document.getElementById("aiNiche").value||"").trim(),
+      city:String(raw.city||document.getElementById("aiCity").value||"").trim(),
+      phone:String(raw.phone||"").trim(), website:String(raw.website||"").trim(),
+      instagram:String(raw.instagram||"").trim(), mapsUrl:String(raw.mapsUrl||"").trim(),
+      rating:raw.rating??"", status:"Novo",
+      recommendedService:String(raw.recommendedService||"").trim(),
+      notes:String(raw.notes||"").trim(),
+      opportunity:["high","medium","low"].includes(raw.opportunity)?raw.opportunity:"medium",
+      createdAt:Date.now(), updatedAt:Date.now(), source:"ChatGPT import"
+    };
+    l.score=l.opportunity==="high"?80:l.opportunity==="medium"?50:20;
+    if(!l.recommendedService)l.recommendedService=recommend(l);
+    l._duplicate=existing.some(e=>(e.name||"").trim().toLowerCase()===l.name.toLowerCase() && (e.city||"").trim().toLowerCase()===l.city.toLowerCase());
+    return l;
+  });
+  document.getElementById("importPreviewCard").classList.remove("hidden");
+  document.getElementById("importPreviewCount").textContent=`${pendingImportedLeads.length} encontrados`;
+  document.getElementById("importPreview").innerHTML=pendingImportedLeads.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Empresa</th><th>Cidade</th><th>Telefone</th><th>Site</th><th>Oportunidade</th><th>Serviço</th><th>Situação</th></tr></thead><tbody>${pendingImportedLeads.map(l=>`<tr><td><strong>${esc(l.name)}</strong></td><td>${esc(l.city)}</td><td>${esc(l.phone||"-")}</td><td>${l.website?"Sim":"Não encontrado"}</td><td><span class="tag ${l.opportunity}">${l.opportunity==="high"?"🔥 Alta":l.opportunity==="medium"?"🟡 Média":"⚪ Baixa"}</span></td><td>${esc(l.recommendedService)}</td><td>${l._duplicate?'<span class="tag">Já cadastrado</span>':'Pronto para importar'}</td></tr>`).join("")}</tbody></table></div>`:'<div class="empty">Nenhum lead válido.</div>';
+  const newCount=pendingImportedLeads.filter(l=>!l._duplicate).length;
+  document.getElementById("importLeadsBtn").classList.toggle("hidden",newCount===0);
+  box.textContent=`Resposta válida. ${newCount} lead(s) novo(s) podem ser importados.`;
+  box.classList.remove("hidden","error");
+ }catch(err){
+  pendingImportedLeads=[]; document.getElementById("importPreviewCard").classList.add("hidden");
+  document.getElementById("importLeadsBtn").classList.add("hidden");
+  box.textContent="Erro: "+err.message; box.classList.remove("hidden");box.classList.add("error");
+ }
+}
+
+async function importAILeads(){
+ const fresh=pendingImportedLeads.filter(l=>!l._duplicate);
+ for(const raw of fresh){const l={...raw};delete l._duplicate;await put("leads",l)}
+ const box=document.getElementById("importStatus");
+ box.textContent=`${fresh.length} lead(s) importado(s) com sucesso para o seu histórico.`;
+ box.classList.remove("hidden","error");
+ document.getElementById("importLeadsBtn").classList.add("hidden");
+ await renderDashboard();
+}
+
+
 document.addEventListener("click",async e=>{
  const nav=e.target.closest("[data-view]"); if(nav)return navigate(nav.dataset.view);
  const go=e.target.closest("[data-go]"); if(go)return navigate(go.dataset.go);
@@ -246,6 +359,13 @@ document.addEventListener("click",async e=>{
  const dl=e.target.closest("[data-delete]"); if(dl)return deleteLead(dl.dataset.delete);
  const sm=e.target.closest("[data-save-message]"); if(sm)return saveMessage(sm.dataset.saveMessage,sm);
 });
+
+document.getElementById("generatePromptBtn").onclick=buildAIPrompt;
+document.getElementById("copyPromptBtn").onclick=async()=>{const v=document.getElementById("aiPrompt").value;if(!v)return alert("Gere a solicitação primeiro.");await navigator.clipboard.writeText(v);const b=document.getElementById("copyPromptBtn");b.textContent="Copiado ✓";setTimeout(()=>b.textContent="📋 Copiar solicitação",1200)};
+document.getElementById("openChatGPTBtn").onclick=()=>window.open("https://chatgpt.com/","_blank","noopener");
+document.getElementById("analyzeImportBtn").onclick=analyzeAIImport;
+document.getElementById("importLeadsBtn").onclick=importAILeads;
+
 document.getElementById("quickAddBtn").onclick=()=>openLeadDialog();
 document.getElementById("saveLeadBtn").onclick=saveLead;
 document.getElementById("searchPlacesBtn").onclick=searchPlaces;

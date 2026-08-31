@@ -1,60 +1,44 @@
-# Prospecta V1
+# Prospecta V2
 
-Plataforma local de prospecção comercial, sem banco de dados de servidor.
+A V2 adiciona o modo **Assistente IA**, pensado para usar sua conta normal do ChatGPT sem precisar contratar Google Places API ou OpenAI API.
+
+## Fluxo sem API
+
+1. Abra **Assistente IA**.
+2. Informe nicho, cidade e quantidade.
+3. Marque os dados desejados.
+4. Clique em **Gerar solicitação**.
+5. Copie e envie a solicitação no ChatGPT.
+6. O ChatGPT pesquisa empresas reais e devolve um bloco JSON estruturado.
+7. Copie o JSON.
+8. Volte ao Prospecta, cole em **Importar resposta** e clique em **Analisar resposta**.
+9. Confira a prévia e importe os leads.
+10. Os leads ficam salvos no histórico local da plataforma.
 
 ## Recursos
 
-- Dashboard com funil comercial
-- Busca de empresas via Google Places API (opcional)
-- Atalho para busca no Google Maps
-- Cadastro manual de leads
-- Memória persistente com IndexedDB
-- Status do lead e histórico de atualização
+- Dashboard e funil comercial
+- Assistente IA sem API integrada
+- Importação estruturada de resultados do ChatGPT
+- Detecção de empresas já cadastradas
+- Cadastro manual
+- Memória persistente via IndexedDB
+- Status e observações
 - Score de oportunidade
-- Sugestão de serviço
-- Modelos de abordagem para WhatsApp
-- Abertura do WhatsApp com mensagem pronta
-- Cadastro de serviços
+- Sugestão de serviços
+- Mensagens para WhatsApp
 - Exportação CSV
-- Backup e restauração em JSON
-
-## Como abrir
-
-### Opção simples
-Abra `index.html` no Chrome/Edge.
-
-### Opção recomendada
-Alguns navegadores limitam chamadas de API quando o arquivo é aberto diretamente.
-Se você tiver Python instalado, abra o terminal na pasta e execute:
-
-    python -m http.server 8080
-
-Depois acesse:
-
-    http://localhost:8080
-
-## Google Places API
-
-1. Crie um projeto no Google Cloud.
-2. Ative a Places API (New).
-3. Crie uma chave de API.
-4. Configure restrições apropriadas para a chave.
-5. Dentro da plataforma, abra Configurações e salve a chave.
-
-A busca usa o endpoint Text Search (New).
+- Backup/restauração JSON
+- Google Places continua disponível como recurso opcional
 
 ## Memória
 
-A plataforma usa IndexedDB do navegador. Os dados continuam salvos após fechar e abrir novamente.
+Os dados ficam no IndexedDB do navegador. Faça backups periódicos. Limpar os dados do navegador, usar modo anônimo ou trocar de computador pode remover o histórico local.
 
-Eles podem ser perdidos se você:
-- limpar os dados do navegador;
-- usar janela anônima;
-- trocar de computador;
-- apagar o perfil do navegador.
+## Abrir
 
-Por isso existe o botão de backup JSON.
+Você pode abrir `index.html` diretamente. Para recursos web que exijam permissões adicionais do navegador, é preferível executar a pasta por um servidor local:
 
-## Observação sobre prospecção
+    python -m http.server 8080
 
-Use os dados e mensagens de forma responsável e respeite as regras aplicáveis do Google, do WhatsApp e de proteção de dados. A plataforma prepara e abre a conversa; o envio continua sob seu controle.
+e acessar `http://localhost:8080`.
