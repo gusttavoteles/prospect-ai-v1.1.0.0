@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Prospecta V1</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">P</div>
+        <div>
+          <strong>Prospecta</strong>
+          <span>CRM de prospecção</span>
+        </div>
+      </div>
+
+      <nav id="nav">
+        <button class="nav-item active" data-view="dashboard">🏠 Dashboard</button>
+        <button class="nav-item" data-view="prospect">🔎 Prospectar</button>
+        <button class="nav-item" data-view="leads">🏢 Leads</button>
+        <button class="nav-item" data-view="services">💼 Serviços</button>
+        <button class="nav-item" data-view="messages">💬 Abordagens</button>
+        <button class="nav-item" data-view="settings">⚙️ Configurações</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <small>Dados salvos neste navegador</small>
+        <div class="storage-dot"><span></span> IndexedDB ativo</div>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSubtitle">Visão geral da sua prospecção comercial.</p>
+        </div>
+        <button class="btn secondary" id="quickAddBtn">+ Adicionar empresa</button>
+      </header>
+
+      <section class="view active" id="dashboardView">
+        <div class="metrics" id="metrics"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-head">
+              <h2>Funil comercial</h2>
+              <span class="muted">Atualizado automaticamente</span>
+            </div>
+            <div id="funnel" class="funnel"></div>
+          </div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Próximas ações</h2>
+            </div>
+            <div id="nextActions" class="empty">Nenhum lead cadastrado ainda.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>Últimos leads</h2>
+            <button class="link-btn" data-go="leads">Ver todos</button>
+          </div>
+          <div id="recentLeads"></div>
+        </div>
+      </section>
+
+      <section class="view" id="prospectView">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Buscar empresas</h2>
+              <p class="muted">Use Google Places API ou abra a busca no Google Maps e cadastre manualmente.</p>
+            </div>
+          </div>
+          <div class="form-grid">
+            <label>Nicho
+              <input id="searchNiche" placeholder="Ex.: Pet Shop, Restaurante, Clínica" />
+            </label>
+            <label>Cidade
+              <input id="searchCity" placeholder="Ex.: Anápolis - GO" />
+            </label>
+            <label>Quantidade
+              <select id="searchLimit">
+                <option>10</option>
+                <option selected>20</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="searchPlacesBtn">🔎 Buscar via Google Places</button>
+            <button class="btn secondary" id="openMapsBtn">📍 Abrir no Google Maps</button>
+          </div>
+          <div id="searchStatus" class="notice hidden"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Resultados</h2>
+            <span id="resultsCount" class="muted">0 empresas</span>
+          </div>
+          <div id="searchResults" class="lead-grid">
+            <div class="empty">Faça uma busca para visualizar possíveis clientes.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="leadsView">
+        <div class="card">
+          <div class="filters">
+            <input id="leadSearch" placeholder="Pesquisar empresa, cidade ou nicho..." />
+            <select id="leadStatusFilter">
+              <option value="">Todos os status</option>
+              <option>Novo</option><option>Analisado</option><option>Contatado</option>
+              <option>Respondeu</option><option>Interessado</option><option>Proposta enviada</option>
+              <option>Fechado</option><option>Não interessado</option>
+            </select>
+            <select id="leadScoreFilter">
+              <option value="">Todas oportunidades</option>
+              <option value="high">🔥 Alta</option>
+              <option value="medium">🟡 Média</option>
+              <option value="low">⚪ Baixa</option>
+            </select>
+            <button class="btn secondary" id="exportCsvBtn">Exportar CSV</button>
+          </div>
+          <div id="leadsTable"></div>
+        </div>
+      </section>
+
+      <section class="view" id="servicesView">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Seus serviços</h2>
+              <p class="muted">A plataforma usa esses serviços para sugerir ofertas para os leads.</p>
+            </div>
+            <button class="btn secondary" id="addServiceBtn">+ Novo serviço</button>
+          </div>
+          <div id="servicesList" class="service-grid"></div>
+        </div>
+      </section>
+
+      <section class="view" id="messagesView">
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <h2>Modelos de abordagem</h2>
+              <p class="muted">Você pode editar e usar nas mensagens personalizadas.</p>
+            </div>
+          </div>
+          <div id="messagesList"></div>
+        </div>
+      </section>
+
+      <section class="view" id="settingsView">
+        <div class="grid-2">
+          <div class="card">
+            <h2>Google Places API</h2>
+            <p class="muted">A chave fica salva apenas neste navegador. Para produção, use restrições de chave no Google Cloud.</p>
+            <label>Chave da API
+              <input id="googleApiKey" type="password" placeholder="Cole sua chave aqui" />
+            </label>
+            <div class="row">
+              <button class="btn primary" id="saveApiKeyBtn">Salvar chave</button>
+              <button class="btn secondary" id="toggleApiKeyBtn">Mostrar</button>
+            </div>
+          </div>
+          <div class="card">
+            <h2>Backup e restauração</h2>
+            <p class="muted">O histórico fica no navegador. Faça backups periódicos se os dados forem importantes.</p>
+            <div class="stack">
+              <button class="btn secondary" id="backupBtn">⬇️ Baixar backup JSON</button>
+              <label class="btn secondary file-btn">⬆️ Restaurar backup
+                <input id="restoreInput" type="file" accept=".json" />
+              </label>
+              <button class="btn danger" id="clearDataBtn">Apagar todos os dados</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Como a memória funciona</h2>
+          <p>Leads, status, observações, serviços e histórico são gravados no <strong>IndexedDB</strong> do navegador. Ao fechar e abrir novamente, seus dados continuam aqui.</p>
+          <p class="muted">Importante: limpar os dados do navegador, usar modo anônimo ou trocar de computador pode remover esse histórico. O botão de backup evita perder seu trabalho.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="leadDialog">
+    <form method="dialog" id="leadForm">
+      <div class="dialog-head">
+        <h2 id="leadDialogTitle">Adicionar empresa</h2>
+        <button class="icon-btn" value="cancel">✕</button>
+      </div>
+      <input type="hidden" id="leadId" />
+      <div class="form-grid">
+        <label>Empresa<input id="leadName" required /></label>
+        <label>Nicho<input id="leadNiche" /></label>
+        <label>Cidade<input id="leadCity" /></label>
+        <label>Telefone / WhatsApp<input id="leadPhone" placeholder="62999999999" /></label>
+        <label>Site<input id="leadWebsite" placeholder="https://..." /></label>
+        <label>Google Maps<input id="leadMapsUrl" placeholder="https://maps.google.com/..." /></label>
+        <label>Instagram<input id="leadInstagram" placeholder="@empresa" /></label>
+        <label>Avaliação<input id="leadRating" type="number" min="0" max="5" step="0.1" /></label>
+        <label>Status
+          <select id="leadStatus">
+            <option>Novo</option><option>Analisado</option><option>Contatado</option>
+            <option>Respondeu</option><option>Interessado</option><option>Proposta enviada</option>
+            <option>Fechado</option><option>Não interessado</option>
+          </select>
+        </label>
+        <label>Oportunidade
+          <select id="leadOpportunity">
+            <option value="auto">Calcular automaticamente</option>
+            <option value="high">Alta</option><option value="medium">Média</option><option value="low">Baixa</option>
+          </select>
+        </label>
+      </div>
+      <label>Serviço recomendado<input id="leadRecommended" placeholder="Ex.: Site + Google + Social Media" /></label>
+      <label>Observações<textarea id="leadNotes" rows="4"></textarea></label>
+      <div class="dialog-actions">
+        <button class="btn secondary" value="cancel">Cancelar</button>
+        <button type="button" class="btn primary" id="saveLeadBtn">Salvar empresa</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="serviceDialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2>Novo serviço</h2>
+        <button class="icon-btn" value="cancel">✕</button>
+      </div>
+      <label>Nome<input id="serviceName" /></label>
+      <label>Descrição<textarea id="serviceDescription" rows="4"></textarea></label>
+      <label>Faixa de preço<input id="servicePrice" placeholder="Ex.: R$ 550 a R$ 1.100/mês" /></label>
+      <div class="dialog-actions">
+        <button class="btn secondary" value="cancel">Cancelar</button>
+        <button type="button" class="btn primary" id="saveServiceBtn">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="messageDialog">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2>Mensagem para WhatsApp</h2>
+        <button class="icon-btn" value="cancel">✕</button>
+      </div>
+      <textarea id="generatedMessage" rows="10"></textarea>
+      <div class="dialog-actions">
+        <button type="button" class="btn secondary" id="copyMessageBtn">Copiar mensagem</button>
+        <button type="button" class="btn primary" id="openWhatsappBtn">Abrir WhatsApp</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
