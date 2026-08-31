@@ -361,8 +361,44 @@ document.addEventListener("click",async e=>{
 });
 
 document.getElementById("generatePromptBtn").onclick=buildAIPrompt;
-document.getElementById("copyPromptBtn").onclick=async()=>{const v=document.getElementById("aiPrompt").value;if(!v)return alert("Gere a solicitação primeiro.");await navigator.clipboard.writeText(v);const b=document.getElementById("copyPromptBtn");b.textContent="Copiado ✓";setTimeout(()=>b.textContent="📋 Copiar solicitação",1200)};
-document.getElementById("openChatGPTBtn").onclick=()=>window.open("https://chatgpt.com/","_blank","noopener");
+async function copyTextSafe(text, textareaId){
+ try{
+   if(navigator.clipboard && window.isSecureContext){
+     await navigator.clipboard.writeText(text);
+     return true;
+   }
+ }catch(e){}
+ const ta=document.getElementById(textareaId);
+ if(ta){
+   ta.focus();
+   ta.select();
+   ta.setSelectionRange(0,ta.value.length);
+   try{return document.execCommand("copy")}catch(e){return false}
+ }
+ return false;
+}
+
+document.getElementById("copyPromptBtn").onclick=async()=>{
+ const v=document.getElementById("aiPrompt").value;
+ if(!v)return alert("Preencha nicho e cidade e clique em Gerar solicitação primeiro.");
+ const ok=await copyTextSafe(v,"aiPrompt");
+ const b=document.getElementById("copyPromptBtn");
+ const hint=document.getElementById("copyHint");
+ if(ok){
+   b.textContent="Copiado ✓";
+   hint.textContent="Agora abra o ChatGPT e cole a solicitação.";
+   setTimeout(()=>b.textContent="📋 Copiar solicitação",1400);
+ }else{
+   document.getElementById("aiPrompt").focus();
+   document.getElementById("aiPrompt").select();
+   hint.textContent="O navegador bloqueou a cópia automática. O texto foi selecionado: use Ctrl+C.";
+ }
+};
+
+document.getElementById("openChatGPTBtn").onclick=()=>{
+ const win=window.open("https://chatgpt.com/","_blank");
+ if(!win) alert("O navegador bloqueou a nova aba. Abra chatgpt.com manualmente.");
+};
 document.getElementById("analyzeImportBtn").onclick=analyzeAIImport;
 document.getElementById("importLeadsBtn").onclick=importAILeads;
 
@@ -377,9 +413,18 @@ document.getElementById("saveApiKeyBtn").onclick=async()=>{await put("settings",
 document.getElementById("toggleApiKeyBtn").onclick=()=>{const i=document.getElementById("googleApiKey");i.type=i.type==="password"?"text":"password"};
 document.getElementById("backupBtn").onclick=exportBackup;
 document.getElementById("restoreInput").onchange=async e=>{try{await restoreBackup(e.target.files[0])}catch(err){alert("Erro ao restaurar: "+err.message)}};
-document.getElementById("clearDataBtn").onclick=async()=>{if(confirm("Isso apagará leads, serviços e mensagens salvos neste navegador. Continuar?")){for(const s of ["leads","services","messages"])await clearStore(s);await seed();await renderDashboard();alert("Dados apagados.")}};
+document.getElementById("clearDataBtn").onclick=async()=>{if(confirm("Isso apagará leads, serviços e mensagens salvos neste navegador. Continuar?")){for(const s of ["leads","services","messages","settings"])await clearStore(s);await seed();document.getElementById("googleApiKey").value="";await renderDashboard();alert("Dados apagados.")}};
 document.getElementById("exportCsvBtn").onclick=exportCSV;
 document.getElementById("copyMessageBtn").onclick=async()=>{await navigator.clipboard.writeText(document.getElementById("generatedMessage").value);document.getElementById("copyMessageBtn").textContent="Copiado ✓";setTimeout(()=>document.getElementById("copyMessageBtn").textContent="Copiar mensagem",1000)};
 document.getElementById("openWhatsappBtn").onclick=openWhatsapp;
 
-(async()=>{await openDB();await seed();await renderDashboard()})().catch(err=>{console.error(err);alert("Erro ao iniciar a plataforma: "+err.message)});
+window.addEventListener("error",e=>console.error("Prospecta:",e.error||e.message));
+(async()=>{
+  await openDB();
+  await seed();
+  await renderDashboard();
+  console.log("Prospecta V2.1 carregado com sucesso.");
+})().catch(err=>{
+  console.error(err);
+  alert("Erro ao iniciar a plataforma: "+err.message+"\n\nConfirme se index.html, app.js e styles.css são todos da mesma versão.");
+});

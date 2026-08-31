@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Prospecta V2</title>
+  <title>Prospecta V2.2 Validada</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -111,6 +111,13 @@
 
 
       <section class="view" id="assistantView">
+        <div class="card ai-warning">
+          <strong>🤖 Como este modo funciona sem API</strong>
+          <p>Esta versão não conversa diretamente com o ChatGPT. Ela gera uma solicitação pronta, abre o ChatGPT para você e depois importa a resposta que você colar aqui. Assim você não precisa pagar uma API.</p>
+          <div class="mini-flow">
+            <span>1. Gerar solicitação</span><b>→</b><span>2. Enviar no ChatGPT</span><b>→</b><span>3. Copiar JSON</span><b>→</b><span>4. Importar leads</span>
+          </div>
+        </div>
         <div class="grid-2">
           <div class="card">
             <div class="card-head">
@@ -155,6 +162,7 @@
             <div class="row">
               <button class="btn secondary" id="copyPromptBtn">📋 Copiar solicitação</button>
               <button class="btn secondary" id="openChatGPTBtn">↗ Abrir ChatGPT</button>
+              <span class="muted" id="copyHint"></span>
             </div>
           </div>
 
