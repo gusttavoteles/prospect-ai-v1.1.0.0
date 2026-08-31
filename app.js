@@ -39,6 +39,10 @@ function uid(prefix="id"){return prefix+"_"+Date.now()+"_"+Math.random().toStrin
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]))}
 function digits(s=""){return s.replace(/\D/g,"")}
 function fmtDate(v){if(!v)return "-";return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(v))}
+function money(v){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v)||0)}
+function weekBounds(ts=Date.now()){const d=new Date(ts);d.setHours(0,0,0,0);const day=d.getDay();const diff=(day+6)%7;const start=new Date(d);start.setDate(d.getDate()-diff);const end=new Date(start);end.setDate(start.getDate()+7);return {start:start.getTime(),end:end.getTime()}}
+function monthBounds(ts=Date.now()){const d=new Date(ts);const start=new Date(d.getFullYear(),d.getMonth(),1);const end=new Date(d.getFullYear(),d.getMonth()+1,1);return {start:start.getTime(),end:end.getTime(),daysInMonth:new Date(d.getFullYear(),d.getMonth()+1,0).getDate(),elapsedDays:d.getDate()}}
+function googleMapsLeadUrl(lead){if(lead.mapsUrl)return lead.mapsUrl;const q=[lead.name,lead.city].filter(Boolean).join(" ");return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`}
 function mapsUrl(place){return place.googleMapsUri || (place.id?`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.displayName?.text||"")}&query_place_id=${encodeURIComponent(place.id)}`:"")}
 
 function opportunityFrom(lead){
@@ -66,6 +70,7 @@ function recommend(lead){
 async function seed(){
  const sv=await getAll("services"); if(!sv.length) for(const s of defaultServices) await put("services",s);
  const ms=await getAll("messages"); if(!ms.length) for(const m of defaultMessages) await put("messages",m);
+ const goal=await getOne("settings","weeklyGoal"); if(!goal) await put("settings",{key:"weeklyGoal",value:1000});
 }
 
 const views={
@@ -98,6 +103,31 @@ async function renderDashboard(){
   ["Interessadas",count("Interessado")+count("Proposta enviada")+count("Fechado")],["Clientes",count("Fechado")]
  ];
  document.getElementById("metrics").innerHTML=metrics.map(x=>`<div class="metric"><div class="value">${x[1]}</div><div class="label">${x[0]}</div></div>`).join("");
+ const goalSetting=await getOne("settings","weeklyGoal");
+ const parsedGoal=Number(goalSetting?.value??1000); const weeklyGoal=Number.isFinite(parsedGoal)&&parsedGoal>=0?parsedGoal:1000;
+ const {start,end}=weekBounds();
+ const weeklyRevenue=leads.filter(l=>l.status==="Fechado" && l.closedAt>=start && l.closedAt<end).reduce((sum,l)=>sum+(Number(l.closedValue)||0),0);
+ const remaining=Math.max(0,weeklyGoal-weeklyRevenue);
+ const pct=weeklyGoal>0?Math.min(100,(weeklyRevenue/weeklyGoal)*100):(weeklyRevenue>0?100:0);
+ document.getElementById("weeklyGoalSummary").textContent=`${money(weeklyRevenue)} / ${money(weeklyGoal)}`;
+ document.getElementById("weeklyRevenueText").textContent=`Faturado: ${money(weeklyRevenue)}`;
+ document.getElementById("weeklyRemainingText").textContent=remaining>0?`Faltam ${money(remaining)}`:`Meta batida! ${money(weeklyRevenue-weeklyGoal)} acima da meta`;
+ document.getElementById("weeklyGoalFill").style.width=`${pct}%`;
+ const sd=new Date(start), ed=new Date(end-1);
+ document.getElementById("weeklyGoalPeriod").textContent=`${sd.toLocaleDateString("pt-BR")} a ${ed.toLocaleDateString("pt-BR")}`;
+
+ const month=monthBounds();
+ const monthlyClosed=leads.filter(l=>l.status==="Fechado" && l.closedAt>=month.start && l.closedAt<month.end);
+ const monthlyRevenue=monthlyClosed.reduce((sum,l)=>sum+(Number(l.closedValue)||0),0);
+ const monthlySales=monthlyClosed.length;
+ const avgTicket=monthlySales?monthlyRevenue/monthlySales:0;
+ const projectedRevenue=month.elapsedDays>0?(monthlyRevenue/month.elapsedDays)*month.daysInMonth:0;
+ document.getElementById("financialMetrics").innerHTML=[
+  ["Faturamento do mês",money(monthlyRevenue),"Total fechado no mês atual"],
+  ["Ticket médio",money(avgTicket),monthlySales?`${monthlySales} venda(s) considerada(s)`:"Nenhuma venda fechada no mês"],
+  ["Vendas fechadas",String(monthlySales),"Negócios fechados no mês"],
+  ["Projeção mensal",money(projectedRevenue),`Ritmo atual em ${month.elapsedDays} de ${month.daysInMonth} dias`]
+ ].map(x=>`<div class="metric financial-metric"><div class="value">${x[1]}</div><div class="label">${x[0]}</div><div class="metric-note">${x[2]}</div></div>`).join("");
  const stages=["Novo","Contatado","Respondeu","Interessado","Proposta enviada","Fechado"];
  const max=Math.max(1,...stages.map(count));
  document.getElementById("funnel").innerHTML=stages.map(s=>`<div class="funnel-row"><span>${s}</span><div class="funnel-bar"><div class="funnel-fill" style="width:${count(s)/max*100}%"></div></div><strong>${count(s)}</strong></div>`).join("");
@@ -156,7 +186,7 @@ function tableHtml(leads,withActions=true){
  if(!leads.length)return '<div class="empty">Nenhum lead encontrado.</div>';
  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Empresa</th><th>Nicho</th><th>Status</th><th>Oportunidade</th><th>Serviço</th><th>Última atualização</th>${withActions?"<th>Ações</th>":""}</tr></thead><tbody>
  ${leads.map(l=>{const op=l.opportunity?{level:l.opportunity,label:l.opportunity==="high"?"🔥 Alta":l.opportunity==="medium"?"🟡 Média":"⚪ Baixa"}:opportunityFrom(l);
- return `<tr><td><strong>${esc(l.name)}</strong><br><span class="muted">${esc(l.city||"")}</span></td><td>${esc(l.niche||"-")}</td><td><span class="status-pill">${esc(l.status||"Novo")}</span></td><td><span class="tag ${op.level}">${op.label} ${l.score!=null?`• ${l.score}/100`:""}</span></td><td>${esc(l.recommendedService||recommend(l))}</td><td>${fmtDate(l.updatedAt||l.createdAt)}</td>${withActions?`<td><button class="link-btn" data-edit="${l.id}">Editar</button> <button class="link-btn" data-msg="${l.id}">WhatsApp</button> <button class="link-btn" data-delete="${l.id}">Excluir</button></td>`:""}</tr>`}).join("")}
+ return `<tr><td><strong>${esc(l.name)}</strong><br><span class="muted">${esc(l.city||"")}</span></td><td>${esc(l.niche||"-")}</td><td><span class="status-pill">${esc(l.status||"Novo")}</span></td><td><span class="tag ${op.level}">${op.label} ${l.score!=null?`• ${l.score}/100`:""}</span></td><td>${esc(l.recommendedService||recommend(l))}</td><td>${fmtDate(l.updatedAt||l.createdAt)}</td>${withActions?`<td><button class="link-btn" data-edit="${l.id}">Editar</button> <button class="link-btn" data-map="${l.id}">Google Maps</button> <button class="link-btn" data-msg="${l.id}">WhatsApp</button> <button class="link-btn" data-delete="${l.id}">Excluir</button></td>`:""}</tr>`}).join("")}
  </tbody></table></div>`;
 }
 
@@ -172,14 +202,15 @@ async function openLeadDialog(id=null){
  document.getElementById("leadForm").reset(); document.getElementById("leadId").value="";
  document.getElementById("leadDialogTitle").textContent=id?"Editar empresa":"Adicionar empresa";
  if(id){const l=await getOne("leads",id); if(!l)return;
-  for(const [field,val] of Object.entries({leadId:l.id,leadName:l.name,leadNiche:l.niche,leadCity:l.city,leadPhone:l.phone,leadWebsite:l.website,leadMapsUrl:l.mapsUrl,leadInstagram:l.instagram,leadRating:l.rating,leadStatus:l.status,leadRecommended:l.recommendedService,leadNotes:l.notes})){const el=document.getElementById(field);if(el)el.value=val||""}
+  for(const [field,val] of Object.entries({leadId:l.id,leadName:l.name,leadNiche:l.niche,leadCity:l.city,leadPhone:l.phone,leadWebsite:l.website,leadMapsUrl:l.mapsUrl,leadInstagram:l.instagram,leadRating:l.rating,leadClosedValue:l.closedValue||"",leadStatus:l.status,leadRecommended:l.recommendedService,leadNotes:l.notes})){const el=document.getElementById(field);if(el)el.value=val||""}
   document.getElementById("leadOpportunity").value=l.opportunity||"auto";
  }
  document.getElementById("leadDialog").showModal();
 }
 async function saveLead(){
  const existingId=document.getElementById("leadId").value, old=existingId?await getOne("leads",existingId):null;
- const l={...(old||{}),id:existingId||uid("lead"),name:document.getElementById("leadName").value.trim(),niche:document.getElementById("leadNiche").value.trim(),city:document.getElementById("leadCity").value.trim(),phone:document.getElementById("leadPhone").value.trim(),website:document.getElementById("leadWebsite").value.trim(),mapsUrl:document.getElementById("leadMapsUrl").value.trim(),instagram:document.getElementById("leadInstagram").value.trim(),rating:document.getElementById("leadRating").value,status:document.getElementById("leadStatus").value,recommendedService:document.getElementById("leadRecommended").value.trim(),notes:document.getElementById("leadNotes").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+ const l={...(old||{}),id:existingId||uid("lead"),name:document.getElementById("leadName").value.trim(),niche:document.getElementById("leadNiche").value.trim(),city:document.getElementById("leadCity").value.trim(),phone:document.getElementById("leadPhone").value.trim(),website:document.getElementById("leadWebsite").value.trim(),mapsUrl:document.getElementById("leadMapsUrl").value.trim(),instagram:document.getElementById("leadInstagram").value.trim(),rating:document.getElementById("leadRating").value,status:document.getElementById("leadStatus").value,closedValue:Number(document.getElementById("leadClosedValue").value)||0,recommendedService:document.getElementById("leadRecommended").value.trim(),notes:document.getElementById("leadNotes").value.trim(),createdAt:old?.createdAt||Date.now(),updatedAt:Date.now()};
+ if(l.status==="Fechado"){l.closedAt=old?.status==="Fechado"&&old?.closedAt?old.closedAt:Date.now()}else{l.closedAt=null}
  if(!l.name){alert("Informe o nome da empresa.");return}
  if(!l.recommendedService)l.recommendedService=recommend(l);
  const choice=document.getElementById("leadOpportunity").value;
@@ -218,21 +249,21 @@ async function renderMessages(){
 }
 async function saveMessage(id,btn){const m=await getOne("messages",id); const ta=document.querySelector(`textarea[data-message-id="${id}"]`);m.text=ta.value;await put("messages",m);btn.textContent="Salvo ✓";setTimeout(()=>btn.textContent="Salvar modelo",1200)}
 
-async function loadSettings(){const k=await getOne("settings","googleApiKey");document.getElementById("googleApiKey").value=k?.value||""}
+async function loadSettings(){const k=await getOne("settings","googleApiKey");document.getElementById("googleApiKey").value=k?.value||"";const g=await getOne("settings","weeklyGoal");document.getElementById("weeklyGoalInput").value=g?.value??1000}
 async function exportBackup(){
- const data={version:1,exportedAt:new Date().toISOString(),leads:await getAll("leads"),services:await getAll("services"),messages:await getAll("messages")};
+ const data={version:2,exportedAt:new Date().toISOString(),leads:await getAll("leads"),services:await getAll("services"),messages:await getAll("messages"),settings:await getAll("settings")};
  download("prospecta-backup-"+new Date().toISOString().slice(0,10)+".json",JSON.stringify(data,null,2),"application/json");
 }
 function download(name,content,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 async function restoreBackup(file){
  const data=JSON.parse(await file.text()); if(!Array.isArray(data.leads))throw new Error("Backup inválido");
- for(const s of ["leads","services","messages"])await clearStore(s);
- for(const l of data.leads||[])await put("leads",l); for(const x of data.services||[])await put("services",x); for(const x of data.messages||[])await put("messages",x);
- await renderDashboard(); alert("Backup restaurado.");
+ for(const s of ["leads","services","messages","settings"])await clearStore(s);
+ for(const l of data.leads||[])await put("leads",l); for(const x of data.services||[])await put("services",x); for(const x of data.messages||[])await put("messages",x); for(const x of data.settings||[])await put("settings",x);
+ await seed(); await renderDashboard(); alert("Backup restaurado.");
 }
 async function exportCSV(){
- const leads=await getAll("leads"); const cols=["Empresa","Nicho","Cidade","Telefone","Site","Google Maps","Instagram","Avaliação","Status","Oportunidade","Score","Serviço recomendado","Observações"];
- const rows=leads.map(l=>[l.name,l.niche,l.city,l.phone,l.website,l.mapsUrl,l.instagram,l.rating,l.status,l.opportunity,l.score,l.recommendedService,l.notes]);
+ const leads=await getAll("leads"); const cols=["Empresa","Nicho","Cidade","Telefone","Site","Google Maps","Instagram","Avaliação","Status","Valor fechado","Data do fechamento","Oportunidade","Score","Serviço recomendado","Observações"];
+ const rows=leads.map(l=>[l.name,l.niche,l.city,l.phone,l.website,l.mapsUrl,l.instagram,l.rating,l.status,l.closedValue||0,l.closedAt?new Date(l.closedAt).toISOString():"",l.opportunity,l.score,l.recommendedService,l.notes]);
  const csv=[cols,...rows].map(r=>r.map(v=>`"${String(v??"").replaceAll('"','""')}"`).join(";")).join("\n");
  download("prospecta-leads.csv","\ufeff"+csv,"text/csv;charset=utf-8");
 }
@@ -313,7 +344,7 @@ async function analyzeAIImport(){
       city:String(raw.city||document.getElementById("aiCity").value||"").trim(),
       phone:String(raw.phone||"").trim(), website:String(raw.website||"").trim(),
       instagram:String(raw.instagram||"").trim(), mapsUrl:String(raw.mapsUrl||"").trim(),
-      rating:raw.rating??"", status:"Novo",
+      rating:raw.rating??"", status:"Novo", closedValue:0, closedAt:null,
       recommendedService:String(raw.recommendedService||"").trim(),
       notes:String(raw.notes||"").trim(),
       opportunity:["high","medium","low"].includes(raw.opportunity)?raw.opportunity:"medium",
@@ -355,6 +386,7 @@ document.addEventListener("click",async e=>{
  const add=e.target.closest("[data-add-place]"); if(add)return addPlace(add.dataset.addPlace);
  const url=e.target.closest("[data-open-url]"); if(url)return window.open(url.dataset.openUrl,"_blank","noopener");
  const edit=e.target.closest("[data-edit]"); if(edit)return openLeadDialog(edit.dataset.edit);
+ const map=e.target.closest("[data-map]"); if(map){const l=await getOne("leads",map.dataset.map);if(l)window.open(googleMapsLeadUrl(l),"_blank","noopener");return}
  const msg=e.target.closest("[data-msg]"); if(msg)return generateMessage(msg.dataset.msg);
  const dl=e.target.closest("[data-delete]"); if(dl)return deleteLead(dl.dataset.delete);
  const sm=e.target.closest("[data-save-message]"); if(sm)return saveMessage(sm.dataset.saveMessage,sm);
@@ -410,10 +442,11 @@ document.getElementById("leadSearch").oninput=renderLeads;document.getElementByI
 document.getElementById("addServiceBtn").onclick=()=>{document.getElementById("serviceName").value="";document.getElementById("serviceDescription").value="";document.getElementById("servicePrice").value="";document.getElementById("serviceDialog").showModal()};
 document.getElementById("saveServiceBtn").onclick=saveService;
 document.getElementById("saveApiKeyBtn").onclick=async()=>{await put("settings",{key:"googleApiKey",value:document.getElementById("googleApiKey").value.trim()});alert("Chave salva neste navegador.")};
+document.getElementById("saveWeeklyGoalBtn").onclick=async()=>{const value=Math.max(0,Number(document.getElementById("weeklyGoalInput").value)||0);await put("settings",{key:"weeklyGoal",value});document.getElementById("weeklyGoalInput").value=value;await renderDashboard();alert("Meta semanal salva.")};
 document.getElementById("toggleApiKeyBtn").onclick=()=>{const i=document.getElementById("googleApiKey");i.type=i.type==="password"?"text":"password"};
 document.getElementById("backupBtn").onclick=exportBackup;
 document.getElementById("restoreInput").onchange=async e=>{try{await restoreBackup(e.target.files[0])}catch(err){alert("Erro ao restaurar: "+err.message)}};
-document.getElementById("clearDataBtn").onclick=async()=>{if(confirm("Isso apagará leads, serviços e mensagens salvos neste navegador. Continuar?")){for(const s of ["leads","services","messages","settings"])await clearStore(s);await seed();document.getElementById("googleApiKey").value="";await renderDashboard();alert("Dados apagados.")}};
+document.getElementById("clearDataBtn").onclick=async()=>{if(confirm("Isso apagará leads, serviços e mensagens salvos neste navegador. Continuar?")){for(const s of ["leads","services","messages","settings"])await clearStore(s);await seed();document.getElementById("googleApiKey").value="";document.getElementById("weeklyGoalInput").value=1000;await renderDashboard();alert("Dados apagados.")}};
 document.getElementById("exportCsvBtn").onclick=exportCSV;
 document.getElementById("copyMessageBtn").onclick=async()=>{await navigator.clipboard.writeText(document.getElementById("generatedMessage").value);document.getElementById("copyMessageBtn").textContent="Copiado ✓";setTimeout(()=>document.getElementById("copyMessageBtn").textContent="Copiar mensagem",1000)};
 document.getElementById("openWhatsappBtn").onclick=openWhatsapp;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Prospecta V2.2 Validada</title>
+  <title>Prospecta V2.4</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -44,6 +44,27 @@
 
       <section class="view active" id="dashboardView">
         <div class="metrics" id="metrics"></div>
+        <div class="card goal-card" id="weeklyGoalCard">
+          <div class="card-head">
+            <div>
+              <h2>Meta semanal de faturamento</h2>
+              <p class="muted" id="weeklyGoalPeriod">Semana atual</p>
+            </div>
+            <strong id="weeklyGoalSummary">R$ 0 / R$ 1.000</strong>
+          </div>
+          <div class="goal-progress"><div class="goal-progress-fill" id="weeklyGoalFill"></div></div>
+          <div class="goal-stats">
+            <span id="weeklyRevenueText">Faturado: R$ 0</span>
+            <strong id="weeklyRemainingText">Faltam R$ 1.000</strong>
+          </div>
+        </div>
+        <div class="section-heading">
+          <div>
+            <h2>Desempenho financeiro do mês</h2>
+            <p class="muted">Calculado pelos leads com status Fechado e valor informado.</p>
+          </div>
+        </div>
+        <div class="metrics financial-metrics" id="financialMetrics"></div>
         <div class="grid-2">
           <div class="card">
             <div class="card-head">
@@ -263,6 +284,14 @@
             </div>
           </div>
           <div class="card">
+            <h2>Meta semanal</h2>
+            <p class="muted">Defina quanto você deseja faturar por semana. O Dashboard mostra automaticamente quanto já foi faturado e quanto falta.</p>
+            <label>Meta semanal (R$)
+              <input id="weeklyGoalInput" type="number" min="0" step="50" placeholder="1000" />
+            </label>
+            <button class="btn primary" id="saveWeeklyGoalBtn">Salvar meta</button>
+          </div>
+          <div class="card">
             <h2>Backup e restauração</h2>
             <p class="muted">O histórico fica no navegador. Faça backups periódicos se os dados forem importantes.</p>
             <div class="stack">
@@ -297,6 +326,7 @@
         <label>Telefone / WhatsApp<input id="leadPhone" placeholder="62999999999" /></label>
         <label>Site<input id="leadWebsite" placeholder="https://..." /></label>
         <label>Google Maps<input id="leadMapsUrl" placeholder="https://maps.google.com/..." /></label>
+        <label>Valor fechado (R$)<input id="leadClosedValue" type="number" min="0" step="0.01" placeholder="0,00" /></label>
         <label>Instagram<input id="leadInstagram" placeholder="@empresa" /></label>
         <label>Avaliação<input id="leadRating" type="number" min="0" max="5" step="0.1" /></label>
         <label>Status
